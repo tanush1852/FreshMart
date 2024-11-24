@@ -42,22 +42,38 @@ export const placeOrder = async (req, res) => {
 };
 
 export const deleteOrder = async (req, res) => {
-    const { id } = req.params;
     try {
-        const order = await Order.findById(id);
+        const { productId } = req.body;
+        const userId = req.user.id;
+    
+        const cart = await Cart.findOne({ userId });
         
-        if (!order) {
-            return res.status(404).json({ message: 'Order not found' });
+        if (!cart) {
+          return res.status(404).json({ message: 'Cart not found' });
         }
-
-        // Check if the user is authorized to delete this order
-        if (order.customer.toString() !== req.user._id.toString()) {
-            return res.status(403).json({ message: 'Not authorized to delete this order' });
+    
+        // Remove the product from the cart
+        const productIndex = cart.products.findIndex(
+          item => item.product.toString() === productId
+        );
+    
+        if (productIndex === -1) {
+          return res.status(404).json({ message: 'Product not found in cart' });
         }
-
-        await Order.findByIdAndDelete(id);
-        res.json({ message: 'Order deleted successfully' });
-    } catch (err) {
-        res.status(500).json({ message: err.message });
-    }
-};
+    
+        // Remove the product at the found index
+        cart.products.splice(productIndex, 1);
+    
+        // Save the cart
+        await cart.save();
+    
+        // Populate the cart before sending response
+        const populatedCart = await Cart.findById(cart._id)
+          .populate('products.product');
+    
+        res.json(populatedCart);
+      } catch (error) {
+        console.error('Remove from cart error:', error);
+        res.status(500).json({ message: 'Error removing item from cart' });
+      }
+    };

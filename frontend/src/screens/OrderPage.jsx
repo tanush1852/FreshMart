@@ -15,34 +15,14 @@ const CartPage = () => {
   const navigate = useNavigate();
   const [cart, setCart] = useState(null); // Default state as null
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     fetchCart();
   }, []);
 
-  const fetchCart = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('http://localhost:5000/api/cart', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setCart(data);
-      } else {
-        throw new Error(data.message || 'Failed to fetch cart');
-      }
-    } catch (err) {
-      setError('Failed to fetch cart');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -74,6 +54,9 @@ const CartPage = () => {
 
   const handleRemoveItem = async (productId) => {
     try {
+      setError(null);
+      setLoading(true);
+  
       const response = await fetch('http://localhost:5000/api/cart/remove', {
         method: 'POST',
         headers: {
@@ -82,18 +65,44 @@ const CartPage = () => {
         },
         body: JSON.stringify({ productId })
       });
+  
       const data = await response.json();
+      
       if (response.ok) {
-        setCart(data);  // Update cart after item removal
+        // Immediately fetch the updated cart after removal
+        await fetchCart(); // This will get the latest cart state from server
+        setSuccessMessage('Item removed successfully');
       } else {
         throw new Error(data.message || 'Failed to remove item');
       }
     } catch (err) {
       setError('Failed to remove item');
-      console.error(err);
+      console.error('Remove item error:', err);
+    } finally {
+      setLoading(false);
     }
   };
-
+  
+  // Update your fetchCart function to handle errors better
+  const fetchCart = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/cart', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setCart(data);
+        setError(null); // Clear any existing errors
+      } else {
+        throw new Error(data.message || 'Failed to fetch cart');
+      }
+    } catch (err) {
+      console.error('Fetch cart error:', err);
+      setError('Failed to fetch cart');
+    }
+  };
   const handleClearCart = async () => {
     try {
       setLoading(true);  // Show loading indicator while the request is in progress
