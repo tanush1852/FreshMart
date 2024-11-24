@@ -29,7 +29,7 @@ const CustomerHomepage = () => {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/products/allProducts', {
+      const response = await fetch('http://localhost:5000/api/products/all', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -179,6 +179,9 @@ const CustomerHomepage = () => {
               <CardContent className="p-4">
                 <div className="space-y-2">
                   <h3 className="font-medium truncate">{product.name}</h3>
+                  <p className="text-sm text-gray-600">
+                    Sold by: {product.storeOwner?.name || 'Unknown Seller'}
+                  </p>
                   <div className="flex justify-between items-center">
                     <span className="text-green-600 font-medium">${product.price}</span>
                     <span className="text-sm text-gray-500">Stock: {product.stock}</span>

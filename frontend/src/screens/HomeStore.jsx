@@ -26,7 +26,7 @@ const HomeStore = () => {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/products/allProducts', {
+      const response = await fetch('http://localhost:5000/api/products', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
