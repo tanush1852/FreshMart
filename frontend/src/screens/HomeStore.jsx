@@ -4,8 +4,9 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Package, Plus, LogOut, Trash2, RefreshCw } from "lucide-react";
+import { Package, Plus, LogOut, Trash2, RefreshCw, Edit2 } from "lucide-react";
 import { ShoppingBasket } from 'lucide-react';
+
 const HomeStore = () => {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
@@ -16,6 +17,7 @@ const HomeStore = () => {
     price: '',
     stock: ''
   });
+  const [editProduct, setEditProduct] = useState(null); // For editing
 
   // Fetch products on component mount
   useEffect(() => {
@@ -47,14 +49,19 @@ const HomeStore = () => {
     navigate('/');
   };
 
-  const handleAddProduct = async (e) => {
+  const handleAddOrUpdateProduct = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
+    const url = editProduct
+      ? `http://localhost:5000/api/products/${editProduct._id}`
+      : 'http://localhost:5000/api/products';
+    const method = editProduct ? 'PUT' : 'POST';
+
     try {
-      const response = await fetch('http://localhost:5000/api/products', {
-        method: 'POST',
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -65,16 +72,32 @@ const HomeStore = () => {
       const data = await response.json();
 
       if (response.ok) {
-        setProducts([...products, data]);
+        if (editProduct) {
+          // Update product in the list
+          setProducts(products.map(p => (p._id === data._id ? data : p)));
+        } else {
+          // Add new product to the list
+          setProducts([...products, data]);
+        }
         setNewProduct({ name: '', price: '', stock: '' });
+        setEditProduct(null);
       } else {
         throw new Error(data.message);
       }
     } catch (err) {
-      setError(err.message || 'Failed to add product');
+      setError(err.message || 'Failed to save product');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEditProduct = (product) => {
+    setEditProduct(product);
+    setNewProduct({
+      name: product.name,
+      price: product.price,
+      stock: product.stock
+    });
   };
 
   const handleDeleteProduct = async (productId) => {
@@ -120,16 +143,16 @@ const HomeStore = () => {
 
       <div className="container mx-auto px-4 py-8">
         <div className="grid gap-6 md:grid-cols-2">
-          {/* Add Product Form */}
+          {/* Add/Edit Product Form */}
           <Card className="bg-white shadow-lg">
             <CardHeader>
               <h2 className="text-xl font-bold flex items-center">
                 <Plus className="h-5 w-5 mr-2 text-green-600" />
-                Add New Product
+                {editProduct ? 'Edit Product' : 'Add New Product'}
               </h2>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleAddProduct} className="space-y-4">
+              <form onSubmit={handleAddOrUpdateProduct} className="space-y-4">
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Product Name</label>
                   <Input
@@ -169,7 +192,7 @@ const HomeStore = () => {
                   className="w-full bg-green-600 hover:bg-green-700"
                   disabled={loading}
                 >
-                  {loading ? 'Adding...' : 'Add Product'}
+                  {loading ? (editProduct ? 'Updating...' : 'Adding...') : (editProduct ? 'Update Product' : 'Add Product')}
                 </Button>
               </form>
             </CardContent>
@@ -205,13 +228,22 @@ const HomeStore = () => {
                         Price: ${product.price} | Stock: {product.stock}
                       </p>
                     </div>
-                    <Button
-                      variant="ghost"
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      onClick={() => handleDeleteProduct(product._id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="ghost"
+                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        onClick={() => handleEditProduct(product)}
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => handleDeleteProduct(product._id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
                 {products.length === 0 && (

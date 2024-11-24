@@ -21,49 +21,49 @@ const AuthSystem = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+  
     if (!formData.email || !formData.password || (!isLogin && !formData.role)) {
       setError('Please fill in all required fields');
       return;
     }
-
+  
     setError('');
     setLoading(true);
-
+  
     try {
-      const endpoint = isLogin ? 'http://localhost:5000/api/auth/login' : 'http://localhost:5000/api/auth/signup';
+      const endpoint = isLogin
+        ? 'http://localhost:5000/api/auth/login'
+        : 'http://localhost:5000/api/auth/signup';
+  
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(formData),
-        credentials: 'include', // Include cookies if you're using session-based auth
+        credentials: 'include',
       });
-
+  
       const data = await response.json();
-
-      if (!response.ok) {
+      console.log('Backend response:', data);
+  
+      if (!response.ok || !data.status) {
         throw new Error(data.message || 'Authentication failed');
       }
-
-      if (!data.user) {
-        throw new Error('Invalid server response');
-      }
-
-      // Store auth data
+  
+      // Store the token for subsequent API requests
       localStorage.setItem('token', data.token);
-      localStorage.setItem('userRole', data.user.role);
-
-      // Navigate based on role
-      if (data.user.role === 'storeOwner') {
-        navigate('./HomeCust');
-      } else if (data.user.role === 'customer') {
-        navigate('./HomeStore');
+  
+      // Redirect based on the selected role
+      const selectedRole = formData.role;
+  
+      if (selectedRole === 'customer') {
+        navigate('./HomeCust'); // Redirect to customer dashboard
+      } else if (selectedRole === 'storeOwner') {
+        navigate('./HomeStore'); // Redirect to store owner dashboard
       } else {
-        throw new Error('Invalid user role');
+        throw new Error('Invalid role selected');
       }
-
     } catch (err) {
       console.error('Auth error:', err);
       setError(err.message || 'An error occurred during authentication');
@@ -71,6 +71,10 @@ const AuthSystem = () => {
       setLoading(false);
     }
   };
+  
+  
+  
+  
 
   return (
     <div className="h-screen w-screen flex overflow-hidden">

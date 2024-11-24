@@ -20,6 +20,8 @@ const CustomerHomepage = () => {
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('');
+  const [cartLoading, setCartLoading] = useState(false);
+  const [cartError, setCartError] = useState('');
 
   useEffect(() => {
     fetchProducts();
@@ -71,6 +73,33 @@ const CustomerHomepage = () => {
     setProducts(sortedProducts);
   };
 
+  const handleAddToCart = async (productId) => {
+    setCartLoading(true);
+    setCartError('');
+    try {
+      const response = await fetch('http://localhost:5000/api/cart/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ productId, quantity: 1 }) // Add 1 item to cart
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message);
+      }
+
+      const cartData = await response.json();
+      console.log('Cart updated successfully:', cartData);
+    } catch (err) {
+      setCartError(err.message || 'Failed to add to cart');
+    } finally {
+      setCartLoading(false);
+    }
+  };
+
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -89,9 +118,7 @@ const CustomerHomepage = () => {
               <Button 
                 variant="outline" 
                 className="bg-white text-green-600 hover:bg-gray-100"
-                onClick={() => {
-                    navigate('/orders'); // Navigate to cart for order placement
-                  }}
+                onClick={() => navigate('/orders')}
               >
                 <ShoppingCart className="h-4 w-4" />
               </Button>
@@ -139,6 +166,12 @@ const CustomerHomepage = () => {
           </Alert>
         )}
 
+        {cartError && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertDescription>{cartError}</AlertDescription>
+          </Alert>
+        )}
+
         {/* Products Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {filteredProducts.map((product) => (
@@ -152,7 +185,8 @@ const CustomerHomepage = () => {
                   </div>
                   <Button 
                     className="w-full bg-green-600 hover:bg-green-700 text-sm h-8"
-                    disabled={product.stock === 0}
+                    disabled={product.stock === 0 || cartLoading}
+                    onClick={() => handleAddToCart(product._id)}
                   >
                     {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
                   </Button>
