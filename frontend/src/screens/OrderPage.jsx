@@ -3,13 +3,25 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { 
   ShoppingBasket, 
   LogOut, 
   ShoppingCart,
   Package,
-  Trash2
+  Trash2,
+  CreditCard,
+  Truck
 } from 'lucide-react';
+import dropin from 'braintree-web-drop-in';
 
 const CartPage = () => {
   const navigate = useNavigate();
@@ -17,11 +29,22 @@ const CartPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [braintreeInstance, setBraintreeInstance] = useState(null);
   const [orderProcessing, setOrderProcessing] = useState(false);
 
   useEffect(() => {
     fetchCart();
   }, []);
+
+  
+  useEffect(() => {
+    if (!showPaymentDialog && braintreeInstance) {
+      braintreeInstance.teardown();
+      setBraintreeInstance(null);
+    }
+  }, [showPaymentDialog]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -29,28 +52,74 @@ const CartPage = () => {
     navigate('/');
   };
 
-  const handlePlaceOrder = async () => {
+  const initializeBraintree = async () => {
     try {
-      setOrderProcessing(true);
-      setError(null);
-      setSuccessMessage('');
-
-      // Validate cart state before proceeding
-      if (!cart || !cart.products || cart.products.length === 0) {
-        throw new Error('Cart is empty');
+      if (!cart?._id) return;
+      
+      const response = await fetch(`http://localhost:5000/api/orders/pay/card`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to get payment token');
       }
 
+      const data = await response.json();
+
+      const instance = await dropin.create({
+        authorization: data.clientToken,
+        container: '#braintree-drop-in-container',
+        card: {
+          vault: {
+            allowVaultCardOverride: true
+          }
+        }
+      });
+
+      setBraintreeInstance(instance);
+    } catch (err) {
+      setError('Failed to initialize payment system');
+      console.error(err);
+    }
+  };
+
+  const handlePayment = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      if (paymentMethod === 'cod') {
+        await handlePlaceOrder('cod');
+      } else if (paymentMethod === 'card' && braintreeInstance) {
+        const { nonce } = await braintreeInstance.requestPaymentMethod();
+        await handlePlaceOrder('card', nonce);
+      }
+    } catch (err) {
+      setError('Payment processing failed');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePlaceOrder = async (paymentType, paymentNonce = null) => {
+    try {
       const response = await fetch('http://localhost:5000/api/cart/order', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify(orderData)
       });
 
       const data = await response.json();
-
-      if (!response.ok) {
+      if (response.ok) {
+        setSuccessMessage('Order created successfully');
+        setCart(null);  // Clear the cart after placing the order
+      } else {
         throw new Error(data.message || 'Failed to create order');
       }
 
@@ -117,8 +186,10 @@ const CartPage = () => {
       });
 
       const data = await response.json();
-
-      if (!response.ok) {
+      if (response.ok) {
+        setCart(data);
+        setError(null); // Clear any existing errors
+      } else {
         throw new Error(data.message || 'Failed to fetch cart');
       }
 
@@ -150,15 +221,18 @@ const CartPage = () => {
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to clear the cart');
+      if (response.ok) {
+        // On success, clear the cart and show success message
+        setCart(null);  // Clear the cart state
+        setSuccessMessage(data.message);  // Show success message
+      } else {
+        // If the response is not successful, show the error message
+        setError(data.message || 'Failed to clear the cart');
       }
-
-      setCart(null);
-      setSuccessMessage(data.message);
     } catch (err) {
-      setError(err.message || 'An error occurred while clearing the cart');
-      console.error('Clear cart error:', err);
+      // Handle network or unexpected errors
+      setError('An error occurred while clearing the cart');
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -204,7 +278,7 @@ const CartPage = () => {
           <Button 
             onClick={handleClearCart}
             className="w-full sm:w-auto bg-red-600 hover:bg-red-700"
-            disabled={loading || orderProcessing || !cart || !cart.products || cart.products.length === 0}
+            disabled={loading || !cart || cart.products.length === 0}
           >
             <Trash2 className="h-4 w-4 mr-2" />
             Clear Cart
@@ -212,19 +286,10 @@ const CartPage = () => {
           <Button 
             onClick={handlePlaceOrder}
             className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
-            disabled={loading || orderProcessing || !cart || !cart.products || cart.products.length === 0}
+            disabled={loading || !cart || cart.products.length === 0}
           >
-            {orderProcessing ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Processing...
-              </>
-            ) : (
-              <>
-                <Package className="h-4 w-4 mr-2" />
-                Place Order
-              </>
-            )}
+            <Package className="h-4 w-4 mr-2" />
+            Place Order
           </Button>
         </div>
 
@@ -245,7 +310,7 @@ const CartPage = () => {
           {loading ? (
             <Card className="p-8">
               <div className="flex justify-center items-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600" />
               </div>
             </Card>
           ) : cart && cart.products && cart.products.length > 0 ? (
