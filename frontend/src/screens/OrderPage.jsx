@@ -13,16 +13,15 @@ import {
 
 const CartPage = () => {
   const navigate = useNavigate();
-  const [cart, setCart] = useState(null); // Default state as null
+  const [cart, setCart] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
+  const [orderProcessing, setOrderProcessing] = useState(false);
 
   useEffect(() => {
     fetchCart();
   }, []);
-
-  
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -32,6 +31,15 @@ const CartPage = () => {
 
   const handlePlaceOrder = async () => {
     try {
+      setOrderProcessing(true);
+      setError(null);
+      setSuccessMessage('');
+
+      // Validate cart state before proceeding
+      if (!cart || !cart.products || cart.products.length === 0) {
+        throw new Error('Cart is empty');
+      }
+
       const response = await fetch('http://localhost:5000/api/cart/order', {
         method: 'POST',
         headers: {
@@ -39,16 +47,27 @@ const CartPage = () => {
           'Content-Type': 'application/json'
         }
       });
+
       const data = await response.json();
-      if (response.ok) {
-        setSuccessMessage('Order created successfully');
-        setCart(null);  // Clear the cart after placing the order
-      } else {
+
+      if (!response.ok) {
         throw new Error(data.message || 'Failed to create order');
       }
+
+      // Handle successful order creation
+      setSuccessMessage(`Order created successfully! ${data.estimatedDeliveryTime ? `Estimated delivery time: ${data.estimatedDeliveryTime}` : ''}`);
+      setCart(null);
+      
+      // Optional: Redirect to orders page after successful creation
+      setTimeout(() => {
+        navigate('/orders');
+      }, 2000);
+
     } catch (err) {
-      setError('Failed to create order');
-      console.error(err);
+      console.error('Order creation error:', err);
+      setError(err.message || 'Failed to create order. Please try again.');
+    } finally {
+      setOrderProcessing(false);
     }
   };
 
@@ -69,74 +88,79 @@ const CartPage = () => {
       const data = await response.json();
       
       if (response.ok) {
-        // Immediately fetch the updated cart after removal
-        await fetchCart(); // This will get the latest cart state from server
+        await fetchCart();
         setSuccessMessage('Item removed successfully');
       } else {
         throw new Error(data.message || 'Failed to remove item');
       }
     } catch (err) {
-      setError('Failed to remove item');
+      setError(err.message || 'Failed to remove item');
       console.error('Remove item error:', err);
     } finally {
       setLoading(false);
     }
   };
   
-  // Update your fetchCart function to handle errors better
   const fetchCart = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/cart', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setCart(data);
-        setError(null); // Clear any existing errors
-      } else {
-        throw new Error(data.message || 'Failed to fetch cart');
-      }
-    } catch (err) {
-      console.error('Fetch cart error:', err);
-      setError('Failed to fetch cart');
-    }
-  };
-  const handleClearCart = async () => {
-    try {
-      setLoading(true);  // Show loading indicator while the request is in progress
+      setLoading(true);
       const token = localStorage.getItem('token');
+      
       if (!token) {
-        setError('No token found');
-        return;
+        throw new Error('No authorization token found');
       }
 
-      // Make the DELETE request to clear the cart
-      const response = await fetch('http://localhost:5000/api/cart/clear', {
-        method: 'DELETE',  // Use DELETE method for clearing cart
+      const response = await fetch('http://localhost:5000/api/cart', {
         headers: {
-          'Authorization': `Bearer ${token}`,  // Pass the token in the Authorization header
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to fetch cart');
+      }
+
+      setCart(data);
+      setError(null);
+    } catch (err) {
+      console.error('Fetch cart error:', err);
+      setError(err.message || 'Failed to fetch cart');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClearCart = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('No authorization token found');
+      }
+
+      const response = await fetch('http://localhost:5000/api/cart/clear', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
         },
       });
 
-      // Parse the response
       const data = await response.json();
 
-      if (response.ok) {
-        // On success, clear the cart and show success message
-        setCart(null);  // Clear the cart state
-        setSuccessMessage(data.message);  // Show success message
-      } else {
-        // If the response is not successful, show the error message
-        setError(data.message || 'Failed to clear the cart');
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to clear the cart');
       }
+
+      setCart(null);
+      setSuccessMessage(data.message);
     } catch (err) {
-      // Handle network or unexpected errors
-      setError('An error occurred while clearing the cart');
-      console.error(err);
+      setError(err.message || 'An error occurred while clearing the cart');
+      console.error('Clear cart error:', err);
     } finally {
-      setLoading(false);  // Reset loading state
+      setLoading(false);
     }
   };
 
@@ -175,12 +199,12 @@ const CartPage = () => {
       </div>
 
       <div className="container mx-auto px-4 py-6">
-        {/* Control Panel (Clear Cart, Place Order) */}
+        {/* Control Panel */}
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           <Button 
             onClick={handleClearCart}
             className="w-full sm:w-auto bg-red-600 hover:bg-red-700"
-            disabled={loading || !cart || cart.products.length === 0}
+            disabled={loading || orderProcessing || !cart || !cart.products || cart.products.length === 0}
           >
             <Trash2 className="h-4 w-4 mr-2" />
             Clear Cart
@@ -188,10 +212,19 @@ const CartPage = () => {
           <Button 
             onClick={handlePlaceOrder}
             className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
-            disabled={loading || !cart || cart.products.length === 0}
+            disabled={loading || orderProcessing || !cart || !cart.products || cart.products.length === 0}
           >
-            <Package className="h-4 w-4 mr-2" />
-            Place Order
+            {orderProcessing ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Processing...
+              </>
+            ) : (
+              <>
+                <Package className="h-4 w-4 mr-2" />
+                Place Order
+              </>
+            )}
           </Button>
         </div>
 
@@ -202,7 +235,7 @@ const CartPage = () => {
         )}
 
         {successMessage && (
-          <Alert variant="success" className="mb-6">
+          <Alert className="mb-6 bg-green-50 border-green-200 text-green-800">
             <AlertDescription>{successMessage}</AlertDescription>
           </Alert>
         )}
@@ -215,59 +248,59 @@ const CartPage = () => {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
               </div>
             </Card>
-          ) : (
-            cart && cart.products ? (
-              <Card key={cart._id} className="hover:shadow-md transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-center space-x-2">
-                      <ShoppingCart className="h-5 w-5 text-green-600" />
-                      <span className="text-xl font-bold">Your Cart</span>
-                    </div>
-                    <span className="text-sm text-gray-500">
-                      {formatDate(cart.createdAt)}
-                    </span>
+          ) : cart && cart.products && cart.products.length > 0 ? (
+            <Card className="hover:shadow-md transition-shadow">
+              <CardHeader className="pb-3">
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center space-x-2">
+                    <ShoppingCart className="h-5 w-5 text-green-600" />
+                    <span className="text-xl font-bold">Your Cart</span>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-500 mb-1">Cart Items</h4>
-                        <div className="space-y-1">
-                          {cart.products.map((item, index) => (
-                            <div key={index} className="flex justify-between text-sm">
-                              <span>{item.product.name}</span>
-                              <span>x{item.quantity}</span>
-                              <Button 
-                                variant="outline"
-                                className="text-red-600"
-                                onClick={() => handleRemoveItem(item.product._id)}
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Remove
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="sm:text-right">
-                        <h4 className="text-sm font-medium text-gray-500 mb-1">Total Amount</h4>
-                        <span className="text-lg font-bold text-green-600">
-                          ${cart.total.toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card className="p-8">
-                <div className="text-center text-gray-500">
-                  No items in the cart
+                  <span className="text-sm text-gray-500">
+                    {formatDate(cart.createdAt)}
+                  </span>
                 </div>
-              </Card>
-            )
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-500 mb-1">Cart Items</h4>
+                      <div className="space-y-1">
+                        {cart.products.map((item, index) => (
+                          <div key={index} className="flex justify-between items-center text-sm">
+                            <span className="flex-1">{item.product.name}</span>
+                            <span className="mx-4">x{item.quantity}</span>
+                            <Button 
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600"
+                              onClick={() => handleRemoveItem(item.product._id)}
+                              disabled={loading || orderProcessing}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Remove
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="sm:text-right">
+                      <h4 className="text-sm font-medium text-gray-500 mb-1">Total Amount</h4>
+                      <span className="text-lg font-bold text-green-600">
+                        ${cart.total.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="p-8">
+              <div className="text-center text-gray-500">
+                No items in the cart
+              </div>
+            </Card>
           )}
         </div>
       </div>

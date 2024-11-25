@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { User, LogIn, ShoppingBasket, Store } from "lucide-react";
-import HomeCust from './HomeCust';
+
 const AuthSystem = () => {
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
@@ -14,27 +14,29 @@ const AuthSystem = () => {
     name: '',
     email: '',
     password: '',
-    role: ''
+    role: '',
+    address: '', // Added address field
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
-    if (!formData.email || !formData.password || (!isLogin && !formData.role)) {
+
+    // Validate fields
+    if (!formData.email || !formData.password || !formData.role || (!isLogin && !formData.address)) {
       setError('Please fill in all required fields');
       return;
     }
-  
+
     setError('');
     setLoading(true);
-  
+
     try {
       const endpoint = isLogin
         ? 'http://localhost:5000/api/auth/login'
         : 'http://localhost:5000/api/auth/signup';
-  
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -43,23 +45,21 @@ const AuthSystem = () => {
         body: JSON.stringify(formData),
         credentials: 'include',
       });
-  
+
       const data = await response.json();
       console.log('Backend response:', data);
-  
+
       if (!response.ok || !data.status) {
         throw new Error(data.message || 'Authentication failed');
       }
-  
+
       // Store the token for subsequent API requests
       localStorage.setItem('token', data.token);
-  
+
       // Redirect based on the selected role
-      const selectedRole = formData.role;
-  
-      if (selectedRole === 'customer') {
+      if (formData.role === 'customer') {
         navigate('./HomeCust'); // Redirect to customer dashboard
-      } else if (selectedRole === 'storeOwner') {
+      } else if (formData.role === 'storeOwner') {
         navigate('./HomeStore'); // Redirect to store owner dashboard
       } else {
         throw new Error('Invalid role selected');
@@ -71,10 +71,6 @@ const AuthSystem = () => {
       setLoading(false);
     }
   };
-  
-  
-  
-  
 
   return (
     <div className="h-screen w-screen flex overflow-hidden">
@@ -127,19 +123,33 @@ const AuthSystem = () => {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {!isLogin && (
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Full Name</label>
-                  <Input
-                    name="name"
-                    placeholder="John Doe"
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    className="h-9"
-                    required={!isLogin}
-                  />
-                </div>
+                <>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700">Full Name</label>
+                    <Input
+                      name="name"
+                      placeholder="John Doe"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="h-9"
+                      required={!isLogin}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700">Address</label>
+                    <Input
+                      name="address"
+                      placeholder="123 Elm Street, Springfield"
+                      value={formData.address}
+                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                      className="h-9"
+                      required={!isLogin}
+                    />
+                  </div>
+                </>
               )}
-              
+
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">Email</label>
                 <Input
@@ -147,7 +157,7 @@ const AuthSystem = () => {
                   name="email"
                   placeholder="you@example.com"
                   value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="h-9"
                   required
                 />
@@ -159,7 +169,7 @@ const AuthSystem = () => {
                   type="password"
                   name="password"
                   value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="h-9"
                   required
                 />
@@ -167,10 +177,10 @@ const AuthSystem = () => {
 
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">Account Type</label>
-                <Select 
+                <Select
                   value={formData.role}
-                  onValueChange={(value) => setFormData({...formData, role: value})}
-                  required={!isLogin}
+                  onValueChange={(value) => setFormData({ ...formData, role: value })}
+                  required
                 >
                   <SelectTrigger className="h-9">
                     <SelectValue placeholder="Select type" />
@@ -198,12 +208,12 @@ const AuthSystem = () => {
                 </Alert>
               )}
 
-              <Button 
+              <Button
                 type="submit"
                 className="w-full bg-green-600 hover:bg-green-700 h-9"
                 disabled={loading}
               >
-                {loading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Create Account')}
+                {loading ? 'Please wait...' : isLogin ? 'Sign In' : 'Create Account'}
               </Button>
             </form>
           </CardContent>
@@ -213,7 +223,7 @@ const AuthSystem = () => {
               onClick={() => {
                 setIsLogin(!isLogin);
                 setError('');
-                setFormData({name: '', email: '', password: '', role: ''});
+                setFormData({ name: '', email: '', password: '', role: '', address: '' });
               }}
               className="text-sm text-green-600 hover:text-green-700 hover:underline"
             >
