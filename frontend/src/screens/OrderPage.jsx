@@ -399,7 +399,7 @@ const CartPage = () => {
                       <div className="sm:text-right">
                         <h4 className="text-sm font-medium text-gray-500 mb-1">Total Amount</h4>
                         <span className="text-lg font-bold text-green-600">
-                          ${cart.total.toFixed(2)}
+                          Rs.{cart.total.toFixed(2)}
                         </span>
                       </div>
                     </div>

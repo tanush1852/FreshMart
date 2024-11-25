@@ -31,8 +31,8 @@ const CustomerHomepage = () => {
     try {
       const response = await fetch('http://localhost:5000/api/products/all', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
       });
       const data = await response.json();
       if (response.ok) {
@@ -55,8 +55,8 @@ const CustomerHomepage = () => {
   const handleSort = (value) => {
     setSortBy(value);
     let sortedProducts = [...products];
-    
-    switch(value) {
+
+    switch (value) {
       case 'price-asc':
         sortedProducts.sort((a, b) => a.price - b.price);
         break;
@@ -69,7 +69,7 @@ const CustomerHomepage = () => {
       default:
         break;
     }
-    
+
     setProducts(sortedProducts);
   };
 
@@ -81,9 +81,9 @@ const CustomerHomepage = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify({ productId, quantity: 1 }) // Add 1 item to cart
+        body: JSON.stringify({ productId, quantity: 1 }),
       });
 
       if (!response.ok) {
@@ -100,7 +100,7 @@ const CustomerHomepage = () => {
     }
   };
 
-  const filteredProducts = products.filter(product =>
+  const filteredProducts = products.filter((product) =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -115,15 +115,15 @@ const CustomerHomepage = () => {
               <h1 className="text-2xl font-bold">Marketplace</h1>
             </div>
             <div className="flex items-center space-x-4">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="bg-white text-green-600 hover:bg-gray-100"
                 onClick={() => navigate('/orders')}
               >
                 <ShoppingCart className="h-4 w-4" />
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="bg-white text-green-600 hover:bg-gray-100"
                 onClick={handleLogout}
               >
@@ -176,6 +176,11 @@ const CustomerHomepage = () => {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {filteredProducts.map((product) => (
             <Card key={product._id} className="overflow-hidden hover:shadow-md transition-shadow">
+              <img
+                src={product.image || '/placeholder-image.png'} // Replace with a default placeholder if image is not available
+                alt={product.name}
+                className="w-full h-40 object-cover"
+              />
               <CardContent className="p-4">
                 <div className="space-y-2">
                   <h3 className="font-medium truncate">{product.name}</h3>
@@ -183,10 +188,10 @@ const CustomerHomepage = () => {
                     Sold by: {product.storeOwner?.name || 'Unknown Seller'}
                   </p>
                   <div className="flex justify-between items-center">
-                    <span className="text-green-600 font-medium">${product.price}</span>
+                    <span className="text-green-600 font-medium">Rs.{product.price}</span>
                     <span className="text-sm text-gray-500">Stock: {product.stock}</span>
                   </div>
-                  <Button 
+                  <Button
                     className="w-full bg-green-600 hover:bg-green-700 text-sm h-8"
                     disabled={product.stock === 0 || cartLoading}
                     onClick={() => handleAddToCart(product._id)}

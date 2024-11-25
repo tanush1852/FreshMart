@@ -10,26 +10,29 @@ import { ShoppingBasket } from 'lucide-react';
 const HomeStore = () => {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
+  const [orderedProducts, setOrderedProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [newProduct, setNewProduct] = useState({
     name: '',
     price: '',
-    stock: ''
+    stock: '',
+    image: null, // New field for image
   });
-  const [editProduct, setEditProduct] = useState(null); // For editing
+  const [editProduct, setEditProduct] = useState(null);
 
-  // Fetch products on component mount
+  // Fetch products and ordered products on component mount
   useEffect(() => {
     fetchProducts();
+     // Fetch ordered products
   }, []);
 
   const fetchProducts = async () => {
     try {
       const response = await fetch('http://localhost:5000/api/products', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
       });
       const data = await response.json();
       if (response.ok) {
@@ -42,6 +45,8 @@ const HomeStore = () => {
       console.error(err);
     }
   };
+
+  
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -59,14 +64,21 @@ const HomeStore = () => {
       : 'http://localhost:5000/api/products';
     const method = editProduct ? 'PUT' : 'POST';
 
+    const formData = new FormData();
+    formData.append('name', newProduct.name);
+    formData.append('price', newProduct.price);
+    formData.append('stock', newProduct.stock);
+    if (newProduct.image) {
+      formData.append('image', newProduct.image);
+    }
+
     try {
       const response = await fetch(url, {
         method,
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify(newProduct)
+        body: formData,
       });
 
       const data = await response.json();
@@ -74,12 +86,12 @@ const HomeStore = () => {
       if (response.ok) {
         if (editProduct) {
           // Update product in the list
-          setProducts(products.map(p => (p._id === data._id ? data : p)));
+          setProducts(products.map((p) => (p._id === data._id ? data : p)));
         } else {
           // Add new product to the list
           setProducts([...products, data]);
         }
-        setNewProduct({ name: '', price: '', stock: '' });
+        setNewProduct({ name: '', price: '', stock: '', image: null });
         setEditProduct(null);
       } else {
         throw new Error(data.message);
@@ -96,7 +108,8 @@ const HomeStore = () => {
     setNewProduct({
       name: product.name,
       price: product.price,
-      stock: product.stock
+      stock: product.stock,
+      image: null, // Reset the image field
     });
   };
 
@@ -105,12 +118,12 @@ const HomeStore = () => {
       const response = await fetch(`http://localhost:5000/api/products/${productId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
       });
 
       if (response.ok) {
-        setProducts(products.filter(product => product._id !== productId));
+        setProducts(products.filter((product) => product._id !== productId));
       } else {
         throw new Error('Failed to delete product');
       }
@@ -129,8 +142,8 @@ const HomeStore = () => {
               <ShoppingBasket className="h-8 w-8" />
               <h1 className="text-2xl font-bold">Store Management</h1>
             </div>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="bg-white text-green-600 hover:bg-gray-100"
               onClick={handleLogout}
             >
@@ -157,7 +170,7 @@ const HomeStore = () => {
                   <label className="text-sm font-medium text-gray-700">Product Name</label>
                   <Input
                     value={newProduct.name}
-                    onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
+                    onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
                     placeholder="Enter product name"
                     required
                   />
@@ -167,7 +180,7 @@ const HomeStore = () => {
                   <Input
                     type="number"
                     value={newProduct.price}
-                    onChange={(e) => setNewProduct({...newProduct, price: e.target.value})}
+                    onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
                     placeholder="Enter price"
                     required
                   />
@@ -177,9 +190,17 @@ const HomeStore = () => {
                   <Input
                     type="number"
                     value={newProduct.stock}
-                    onChange={(e) => setNewProduct({...newProduct, stock: e.target.value})}
+                    onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
                     placeholder="Enter stock quantity"
                     required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">Product Image</label>
+                  <Input
+                    type="file"
+                    onChange={(e) => setNewProduct({ ...newProduct, image: e.target.files[0] })}
+                    accept="image/*"
                   />
                 </div>
                 {error && (
@@ -187,12 +208,18 @@ const HomeStore = () => {
                     <AlertDescription>{error}</AlertDescription>
                   </Alert>
                 )}
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="w-full bg-green-600 hover:bg-green-700"
                   disabled={loading}
                 >
-                  {loading ? (editProduct ? 'Updating...' : 'Adding...') : (editProduct ? 'Update Product' : 'Add Product')}
+                  {loading
+                    ? editProduct
+                      ? 'Updating...'
+                      : 'Adding...'
+                    : editProduct
+                    ? 'Update Product'
+                    : 'Add Product'}
                 </Button>
               </form>
             </CardContent>
@@ -206,8 +233,8 @@ const HomeStore = () => {
                   <Package className="h-5 w-5 mr-2 text-green-600" />
                   Products List
                 </h2>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={fetchProducts}
                   className="text-green-600 hover:text-green-700"
                 >
@@ -218,14 +245,14 @@ const HomeStore = () => {
             <CardContent>
               <div className="space-y-4">
                 {products.map((product) => (
-                  <div 
-                    key={product._id} 
+                  <div
+                    key={product._id}
                     className="flex justify-between items-center p-4 bg-gray-50 rounded-lg"
                   >
                     <div>
                       <h3 className="font-medium">{product.name}</h3>
                       <p className="text-sm text-gray-600">
-                        Price: ${product.price} | Stock: {product.stock}
+                        Price: Rs.{product.price} | Stock: {product.stock}
                       </p>
                     </div>
                     <div className="flex space-x-2">
@@ -252,6 +279,9 @@ const HomeStore = () => {
               </div>
             </CardContent>
           </Card>
+
+          
+          
         </div>
       </div>
     </div>

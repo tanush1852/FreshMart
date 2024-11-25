@@ -147,19 +147,19 @@ export const cartToOrder = async (req, res) => {
     try {
         // Find cart and populate products with complete storeOwner information
         const cart = await Cart.findOne({ customer: req.user._id })
-            .populate({
-                path: 'products.product',
-                populate: {
-                    path: 'storeOwner',
-                    select: 'address name' // Make sure these fields exist in your User schema
-                }
-            });
+    .populate({
+        path: 'products.product',
+        populate: {
+            path: 'storeOwner',
+            select: 'address name',
+        },
+    });
 
-        if (!cart || !cart.products.length) {
-            return res.status(404).json({ 
-                message: 'Cart not found or empty' 
-            });
-        }
+
+    if (!cart || !cart.products.length) {
+        return res.status(404).json({ message: 'Cart is empty or contains invalid products' });
+    }
+    
 
         // Validate all products and check stock in one pass
         const stockValidationErrors = [];
@@ -167,33 +167,27 @@ export const cartToOrder = async (req, res) => {
 
         for (const item of cart.products) {
             const product = item.product;
-            
+        
             if (!product || !product._id) {
                 stockValidationErrors.push(`Invalid product reference found in cart`);
                 continue;
             }
-
-            // Fetch latest product data to ensure stock accuracy
-            const currentProduct = await Product.findById(product._id)
-                .populate('storeOwner', 'address name');
-            
+        
+            // Fetch the latest product data
+            const currentProduct = await Product.findById(product._id).populate('storeOwner', 'address name');
             if (!currentProduct) {
                 stockValidationErrors.push(`Product ${product._id} no longer exists`);
                 continue;
             }
-
+        
             if (currentProduct.stock < item.quantity) {
-                stockValidationErrors.push(
-                    `${currentProduct.name} does not have enough stock. Requested: ${item.quantity}, Available: ${currentProduct.stock}`
-                );
+                stockValidationErrors.push(`${currentProduct.name} does not have enough stock.`);
                 continue;
             }
-
-            validProducts.push({
-                product: currentProduct,
-                quantity: item.quantity
-            });
+        
+            validProducts.push({ product: currentProduct, quantity: item.quantity });
         }
+        
 
         if (stockValidationErrors.length > 0) {
             return res.status(400).json({
@@ -215,7 +209,7 @@ export const cartToOrder = async (req, res) => {
                         product: item.product._id,
                         quantity: item.quantity,
                         price: item.product.price,
-                        storeOwner: item.product.storeOwner._id
+                        
                     })),
                     total: cart.total,
                     status: 'pending'
@@ -313,8 +307,7 @@ export const cartToOrder = async (req, res) => {
 
         } catch (error) {
             console.error('Transaction error:', error);
-            await session.abortTransaction();
-            throw new Error(`Failed to process order: ${error.message}`);
+            
         } finally {
             await session.endSession();
         }
