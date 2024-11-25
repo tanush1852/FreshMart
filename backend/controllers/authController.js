@@ -8,8 +8,8 @@ const generateToken = (id) => {
 };
 
 export const signup = async (req, res) => {
-    const { name, email, password, role } = req.body;
-    if (!name || !email || !password || !role) 
+    const { name, email, password, role, address } = req.body; // Include address
+    if (!name || !email || !password || !role || !address) // Validate address field
         return res.status(400).json({ message: 'All fields are required' });
 
     try {
@@ -18,7 +18,7 @@ export const signup = async (req, res) => {
             return res.status(400).json({ message: 'User already exists' });
 
         // Create the user
-        const user = await User.create({ name, email, password, role });
+        const user = await User.create({ name, email, password, role, address });
 
         // Generate a token
         const token = generateToken(user._id);

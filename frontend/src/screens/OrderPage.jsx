@@ -105,40 +105,45 @@ const CartPage = () => {
 
   const handlePlaceOrder = async (paymentType, paymentNonce = null) => {
     try {
-      const orderData = {
-        paymentType,
-        cartId: cart._id,
-        ...(paymentNonce && { paymentNonce })
-      };
+        const orderData = {
+            paymentType,
+            cartId: cart._id,
+            ...(paymentNonce && { paymentNonce })
+        };
 
-      const response = await fetch('http://localhost:5000/api/cart/order', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(orderData)
-      });
+        const response = await fetch('http://localhost:5000/api/cart/order', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(orderData)
+        });
 
-      const data = await response.json();
-      
-      if (response.ok) {
-        setSuccessMessage('Order placed successfully!');
-        setCart(null);
-        setShowPaymentDialog(false);
-        // Clear braintree instance
-        if (braintreeInstance) {
-          braintreeInstance.teardown();
-          setBraintreeInstance(null);
+        const data = await response.json();
+
+        if (response.ok) {
+            const deliveryMessage = data.estimatedDeliveryTime 
+                ? `Estimated delivery time: ${data.estimatedDeliveryTime}`
+                : 'Estimated delivery time could not be determined.';
+            setSuccessMessage(`Order placed successfully! ${deliveryMessage}`);
+            setCart(null);
+            setShowPaymentDialog(false);
+
+            // Clear braintree instance
+            if (braintreeInstance) {
+                braintreeInstance.teardown();
+                setBraintreeInstance(null);
+            }
+        } else {
+            throw new Error(data.message || 'Failed to create order');
         }
-      } else {
-        throw new Error(data.message || 'Failed to create order');
-      }
     } catch (err) {
-      setError('Failed to create order');
-      console.error(err);
+        setError('Failed to create order');
+        console.error(err);
     }
-  };
+};
+
 
   const handleRemoveItem = async (productId) => {
     try {
