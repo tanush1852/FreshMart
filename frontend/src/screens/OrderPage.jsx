@@ -32,13 +32,12 @@ const CartPage = () => {
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('');
   const [braintreeInstance, setBraintreeInstance] = useState(null);
-  const [orderProcessing, setOrderProcessing] = useState(false);
 
   useEffect(() => {
     fetchCart();
   }, []);
 
-  
+  // Cleanup Braintree instance when dialog closes
   useEffect(() => {
     if (!showPaymentDialog && braintreeInstance) {
       braintreeInstance.teardown();
@@ -106,39 +105,45 @@ const CartPage = () => {
 
   const handlePlaceOrder = async (paymentType, paymentNonce = null) => {
     try {
-      const response = await fetch('http://localhost:5000/api/cart/order', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(orderData)
-      });
+        const orderData = {
+            paymentType,
+            cartId: cart._id,
+            ...(paymentNonce && { paymentNonce })
+        };
 
-      const data = await response.json();
-      if (response.ok) {
-        setSuccessMessage('Order created successfully');
-        setCart(null);  // Clear the cart after placing the order
-      } else {
-        throw new Error(data.message || 'Failed to create order');
-      }
+        const response = await fetch('http://localhost:5000/api/cart/order', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(orderData)
+        });
 
-      // Handle successful order creation
-      setSuccessMessage(`Order created successfully! ${data.estimatedDeliveryTime ? `Estimated delivery time: ${data.estimatedDeliveryTime}` : ''}`);
-      setCart(null);
-      
-      // Optional: Redirect to orders page after successful creation
-      setTimeout(() => {
-        navigate('/orders');
-      }, 2000);
+        const data = await response.json();
 
+        if (response.ok) {
+            const deliveryMessage = data.estimatedDeliveryTime 
+                ? `Estimated delivery time: ${data.estimatedDeliveryTime}`
+                : 'Estimated delivery time could not be determined.';
+            setSuccessMessage(`Order placed successfully! ${deliveryMessage}`);
+            setCart(null);
+            setShowPaymentDialog(false);
+
+            // Clear braintree instance
+            if (braintreeInstance) {
+                braintreeInstance.teardown();
+                setBraintreeInstance(null);
+            }
+        } else {
+            throw new Error(data.message || 'Failed to create order');
+        }
     } catch (err) {
-      console.error('Order creation error:', err);
-      setError(err.message || 'Failed to create order. Please try again.');
-    } finally {
-      setOrderProcessing(false);
+        setError('Failed to create order');
+        console.error(err);
     }
-  };
+};
+
 
   const handleRemoveItem = async (productId) => {
     try {
@@ -163,7 +168,7 @@ const CartPage = () => {
         throw new Error(data.message || 'Failed to remove item');
       }
     } catch (err) {
-      setError(err.message || 'Failed to remove item');
+      setError('Failed to remove item');
       console.error('Remove item error:', err);
     } finally {
       setLoading(false);
@@ -172,34 +177,21 @@ const CartPage = () => {
   
   const fetchCart = async () => {
     try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      
-      if (!token) {
-        throw new Error('No authorization token found');
-      }
-
       const response = await fetch('http://localhost:5000/api/cart', {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
-
       const data = await response.json();
       if (response.ok) {
         setCart(data);
-        setError(null); // Clear any existing errors
+        setError(null);
       } else {
         throw new Error(data.message || 'Failed to fetch cart');
       }
-
-      setCart(data);
-      setError(null);
     } catch (err) {
       console.error('Fetch cart error:', err);
-      setError(err.message || 'Failed to fetch cart');
-    } finally {
-      setLoading(false);
+      setError('Failed to fetch cart');
     }
   };
 
@@ -207,9 +199,9 @@ const CartPage = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      
       if (!token) {
-        throw new Error('No authorization token found');
+        setError('No token found');
+        return;
       }
 
       const response = await fetch('http://localhost:5000/api/cart/clear', {
@@ -222,15 +214,12 @@ const CartPage = () => {
       const data = await response.json();
 
       if (response.ok) {
-        // On success, clear the cart and show success message
-        setCart(null);  // Clear the cart state
-        setSuccessMessage(data.message);  // Show success message
+        setCart(null);
+        setSuccessMessage(data.message);
       } else {
-        // If the response is not successful, show the error message
-        setError(data.message || 'Failed to clear the cart');
+        throw new Error(data.message || 'Failed to clear the cart');
       }
     } catch (err) {
-      // Handle network or unexpected errors
       setError('An error occurred while clearing the cart');
       console.error(err);
     } finally {
@@ -273,24 +262,82 @@ const CartPage = () => {
       </div>
 
       <div className="container mx-auto px-4 py-6">
-        {/* Control Panel */}
+        {/* Control Panel (Clear Cart, Place Order) */}
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           <Button 
             onClick={handleClearCart}
             className="w-full sm:w-auto bg-red-600 hover:bg-red-700"
-            disabled={loading || !cart || cart.products.length === 0}
+            disabled={loading || !cart || cart.products?.length === 0}
           >
             <Trash2 className="h-4 w-4 mr-2" />
             Clear Cart
           </Button>
-          <Button 
-            onClick={handlePlaceOrder}
-            className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
-            disabled={loading || !cart || cart.products.length === 0}
-          >
-            <Package className="h-4 w-4 mr-2" />
-            Place Order
-          </Button>
+          <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+            <DialogTrigger asChild>
+              <Button 
+                className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
+                disabled={loading || !cart || cart.products?.length === 0}
+                onClick={() => {
+                  setShowPaymentDialog(true);
+                  setPaymentMethod('');
+                  setError(null);
+                }}
+              >
+                <Package className="h-4 w-4 mr-2" />
+                Place Order
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Choose Payment Method</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-6">
+                <RadioGroup
+                  value={paymentMethod}
+                  onValueChange={async (value) => {
+                    setPaymentMethod(value);
+                    if (value === 'card') {
+                      await initializeBraintree();
+                    }
+                  }}
+                >
+                  <div className="flex items-center space-x-2 mb-4">
+                    <RadioGroupItem value="cod" id="cod" />
+                    <Label htmlFor="cod" className="flex items-center">
+                      <Truck className="h-4 w-4 mr-2" />
+                      Cash on Delivery
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="card" id="card" />
+                    <Label htmlFor="card" className="flex items-center">
+                      <CreditCard className="h-4 w-4 mr-2" />
+                      Pay with Card
+                    </Label>
+                  </div>
+                </RadioGroup>
+
+                {paymentMethod === 'card' && (
+                  <div id="braintree-drop-in-container" className="mt-4" />
+                )}
+
+                <Button 
+                  onClick={handlePayment}
+                  className="w-full bg-green-600 hover:bg-green-700"
+                  disabled={loading || !paymentMethod}
+                >
+                  {loading ? (
+                    <div className="flex items-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                      Processing...
+                    </div>
+                  ) : (
+                    paymentMethod === 'cod' ? 'Place Order' : 'Pay Now'
+                  )}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {error && (
@@ -300,7 +347,7 @@ const CartPage = () => {
         )}
 
         {successMessage && (
-          <Alert className="mb-6 bg-green-50 border-green-200 text-green-800">
+          <Alert variant="success" className="mb-6">
             <AlertDescription>{successMessage}</AlertDescription>
           </Alert>
         )}
@@ -313,59 +360,59 @@ const CartPage = () => {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600" />
               </div>
             </Card>
-          ) : cart && cart.products && cart.products.length > 0 ? (
-            <Card className="hover:shadow-md transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center space-x-2">
-                    <ShoppingCart className="h-5 w-5 text-green-600" />
-                    <span className="text-xl font-bold">Your Cart</span>
+          ) : (
+            cart && cart.products ? (
+              <Card key={cart._id} className="hover:shadow-md transition-shadow">
+                <CardHeader className="pb-3">
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center space-x-2">
+                      <ShoppingCart className="h-5 w-5 text-green-600" />
+                      <span className="text-xl font-bold">Your Cart</span>
+                    </div>
+                    <span className="text-sm text-gray-500">
+                      {formatDate(cart.createdAt)}
+                    </span>
                   </div>
-                  <span className="text-sm text-gray-500">
-                    {formatDate(cart.createdAt)}
-                  </span>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-500 mb-1">Cart Items</h4>
-                      <div className="space-y-1">
-                        {cart.products.map((item, index) => (
-                          <div key={index} className="flex justify-between items-center text-sm">
-                            <span className="flex-1">{item.product.name}</span>
-                            <span className="mx-4">x{item.quantity}</span>
-                            <Button 
-                              variant="outline"
-                              size="sm"
-                              className="text-red-600"
-                              onClick={() => handleRemoveItem(item.product._id)}
-                              disabled={loading || orderProcessing}
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Remove
-                            </Button>
-                          </div>
-                        ))}
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-500 mb-1">Cart Items</h4>
+                        <div className="space-y-1">
+                          {cart.products.map((item, index) => (
+                            <div key={index} className="flex justify-between text-sm">
+                              <span>{item.product.name}</span>
+                              <span>x{item.quantity}</span>
+                              <Button 
+                                variant="outline"
+                                className="text-red-600"
+                                onClick={() => handleRemoveItem(item.product._id)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Remove
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="sm:text-right">
+                        <h4 className="text-sm font-medium text-gray-500 mb-1">Total Amount</h4>
+                        <span className="text-lg font-bold text-green-600">
+                          ${cart.total.toFixed(2)}
+                        </span>
                       </div>
                     </div>
-                    <div className="sm:text-right">
-                      <h4 className="text-sm font-medium text-gray-500 mb-1">Total Amount</h4>
-                      <span className="text-lg font-bold text-green-600">
-                        ${cart.total.toFixed(2)}
-                      </span>
-                    </div>
                   </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="p-8">
+                <div className="text-center text-gray-500">
+                  No items in the cart
                 </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="p-8">
-              <div className="text-center text-gray-500">
-                No items in the cart
-              </div>
-            </Card>
+              </Card>
+            )
           )}
         </div>
       </div>
