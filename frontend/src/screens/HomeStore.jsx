@@ -29,7 +29,7 @@ const HomeStore = () => {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/products', {
+      const response = await fetch(`${import.meta.env.VITE_REACT_APP_BACKEND_BASEURL}/api/products`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
@@ -60,8 +60,8 @@ const HomeStore = () => {
     setError('');
 
     const url = editProduct
-      ? `http://localhost:5000/api/products/${editProduct._id}`
-      : 'http://localhost:5000/api/products';
+      ? `${import.meta.env.VITE_REACT_APP_BACKEND_BASEURL}/api/products/${editProduct._id}`
+      : `${import.meta.env.VITE_REACT_APP_BACKEND_BASEURL}/api/products`;
     const method = editProduct ? 'PUT' : 'POST';
 
     const formData = new FormData();
@@ -115,7 +115,7 @@ const HomeStore = () => {
 
   const handleDeleteProduct = async (productId) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/products/${productId}`, {
+      const response = await fetch(`${import.meta.env.VITE_REACT_APP_BACKEND_BASEURL}/api/products/${productId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,

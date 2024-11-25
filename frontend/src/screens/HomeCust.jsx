@@ -29,7 +29,7 @@ const CustomerHomepage = () => {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/products/all', {
+      const response = await fetch(`${import.meta.env.VITE_REACT_APP_BACKEND_BASEURL}/api/products/all`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
@@ -77,7 +77,7 @@ const CustomerHomepage = () => {
     setCartLoading(true);
     setCartError('');
     try {
-      const response = await fetch('http://localhost:5000/api/cart/add', {
+      const response = await fetch(`${import.meta.env.VITE_REACT_APP_BACKEND_BASEURL}/api/cart/add`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

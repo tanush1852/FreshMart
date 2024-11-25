@@ -34,8 +34,8 @@ const AuthSystem = () => {
 
     try {
       const endpoint = isLogin
-        ? 'http://localhost:5000/api/auth/login'
-        : 'http://localhost:5000/api/auth/signup';
+        ? `${import.meta.env.VITE_REACT_APP_BACKEND_BASEURL}/api/auth/login`
+        : `${import.meta.env.VITE_REACT_APP_BACKEND_BASEURL}/api/auth/signup`;
 
       const response = await fetch(endpoint, {
         method: 'POST',

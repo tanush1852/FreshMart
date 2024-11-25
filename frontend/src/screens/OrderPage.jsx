@@ -22,7 +22,6 @@ import {
   Truck
 } from 'lucide-react';
 import dropin from 'braintree-web-drop-in';
-
 const CartPage = () => {
   const navigate = useNavigate();
   const [cart, setCart] = useState(null);
@@ -55,7 +54,7 @@ const CartPage = () => {
     try {
       if (!cart?._id) return;
       
-      const response = await fetch(`http://localhost:5000/api/orders/pay/card`, {
+      const response = await fetch(`${import.meta.env.VITE_REACT_APP_BACKEND_BASEURL}/api/orders/pay/card`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -111,7 +110,7 @@ const CartPage = () => {
             ...(paymentNonce && { paymentNonce })
         };
 
-        const response = await fetch('http://localhost:5000/api/cart/order', {
+        const response = await fetch(`${import.meta.env.VITE_REACT_APP_BACKEND_BASEURL}/api/cart/order`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -150,7 +149,7 @@ const CartPage = () => {
       setError(null);
       setLoading(true);
   
-      const response = await fetch('http://localhost:5000/api/cart/remove', {
+      const response = await fetch(`${import.meta.env.VITE_REACT_APP_BACKEND_BASEURL}/api/cart/remove`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -177,7 +176,7 @@ const CartPage = () => {
   
   const fetchCart = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/cart', {
+      const response = await fetch(`${import.meta.env.VITE_REACT_APP_BACKEND_BASEURL}/api/cart`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -204,7 +203,7 @@ const CartPage = () => {
         return;
       }
 
-      const response = await fetch('http://localhost:5000/api/cart/clear', {
+      const response = await fetch(`${import.meta.env.VITE_REACT_APP_BACKEND_BASEURL}/api/cart/clear`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
