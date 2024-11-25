@@ -3,26 +3,47 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { 
   ShoppingBasket, 
   LogOut, 
   ShoppingCart,
   Package,
-  Trash2
+  Trash2,
+  CreditCard,
+  Truck
 } from 'lucide-react';
+import dropin from 'braintree-web-drop-in';
 
 const CartPage = () => {
   const navigate = useNavigate();
-  const [cart, setCart] = useState(null); // Default state as null
+  const [cart, setCart] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [braintreeInstance, setBraintreeInstance] = useState(null);
 
   useEffect(() => {
     fetchCart();
   }, []);
 
-  
+  // Cleanup Braintree instance when dialog closes
+  useEffect(() => {
+    if (!showPaymentDialog && braintreeInstance) {
+      braintreeInstance.teardown();
+      setBraintreeInstance(null);
+    }
+  }, [showPaymentDialog]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -30,19 +51,86 @@ const CartPage = () => {
     navigate('/');
   };
 
-  const handlePlaceOrder = async () => {
+  const initializeBraintree = async () => {
     try {
+      if (!cart?._id) return;
+      
+      const response = await fetch(`http://localhost:5000/api/orders/pay/card`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to get payment token');
+      }
+
+      const data = await response.json();
+
+      const instance = await dropin.create({
+        authorization: data.clientToken,
+        container: '#braintree-drop-in-container',
+        card: {
+          vault: {
+            allowVaultCardOverride: true
+          }
+        }
+      });
+
+      setBraintreeInstance(instance);
+    } catch (err) {
+      setError('Failed to initialize payment system');
+      console.error(err);
+    }
+  };
+
+  const handlePayment = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      if (paymentMethod === 'cod') {
+        await handlePlaceOrder('cod');
+      } else if (paymentMethod === 'card' && braintreeInstance) {
+        const { nonce } = await braintreeInstance.requestPaymentMethod();
+        await handlePlaceOrder('card', nonce);
+      }
+    } catch (err) {
+      setError('Payment processing failed');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePlaceOrder = async (paymentType, paymentNonce = null) => {
+    try {
+      const orderData = {
+        paymentType,
+        cartId: cart._id,
+        ...(paymentNonce && { paymentNonce })
+      };
+
       const response = await fetch('http://localhost:5000/api/cart/order', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify(orderData)
       });
+
       const data = await response.json();
+      
       if (response.ok) {
-        setSuccessMessage('Order created successfully');
-        setCart(null);  // Clear the cart after placing the order
+        setSuccessMessage('Order placed successfully!');
+        setCart(null);
+        setShowPaymentDialog(false);
+        // Clear braintree instance
+        if (braintreeInstance) {
+          braintreeInstance.teardown();
+          setBraintreeInstance(null);
+        }
       } else {
         throw new Error(data.message || 'Failed to create order');
       }
@@ -69,8 +157,7 @@ const CartPage = () => {
       const data = await response.json();
       
       if (response.ok) {
-        // Immediately fetch the updated cart after removal
-        await fetchCart(); // This will get the latest cart state from server
+        await fetchCart();
         setSuccessMessage('Item removed successfully');
       } else {
         throw new Error(data.message || 'Failed to remove item');
@@ -83,7 +170,6 @@ const CartPage = () => {
     }
   };
   
-  // Update your fetchCart function to handle errors better
   const fetchCart = async () => {
     try {
       const response = await fetch('http://localhost:5000/api/cart', {
@@ -94,7 +180,7 @@ const CartPage = () => {
       const data = await response.json();
       if (response.ok) {
         setCart(data);
-        setError(null); // Clear any existing errors
+        setError(null);
       } else {
         throw new Error(data.message || 'Failed to fetch cart');
       }
@@ -103,40 +189,36 @@ const CartPage = () => {
       setError('Failed to fetch cart');
     }
   };
+
   const handleClearCart = async () => {
     try {
-      setLoading(true);  // Show loading indicator while the request is in progress
+      setLoading(true);
       const token = localStorage.getItem('token');
       if (!token) {
         setError('No token found');
         return;
       }
 
-      // Make the DELETE request to clear the cart
       const response = await fetch('http://localhost:5000/api/cart/clear', {
-        method: 'DELETE',  // Use DELETE method for clearing cart
+        method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,  // Pass the token in the Authorization header
+          'Authorization': `Bearer ${token}`,
         },
       });
 
-      // Parse the response
       const data = await response.json();
 
       if (response.ok) {
-        // On success, clear the cart and show success message
-        setCart(null);  // Clear the cart state
-        setSuccessMessage(data.message);  // Show success message
+        setCart(null);
+        setSuccessMessage(data.message);
       } else {
-        // If the response is not successful, show the error message
-        setError(data.message || 'Failed to clear the cart');
+        throw new Error(data.message || 'Failed to clear the cart');
       }
     } catch (err) {
-      // Handle network or unexpected errors
       setError('An error occurred while clearing the cart');
       console.error(err);
     } finally {
-      setLoading(false);  // Reset loading state
+      setLoading(false);
     }
   };
 
@@ -180,19 +262,77 @@ const CartPage = () => {
           <Button 
             onClick={handleClearCart}
             className="w-full sm:w-auto bg-red-600 hover:bg-red-700"
-            disabled={loading || !cart || cart.products.length === 0}
+            disabled={loading || !cart || cart.products?.length === 0}
           >
             <Trash2 className="h-4 w-4 mr-2" />
             Clear Cart
           </Button>
-          <Button 
-            onClick={handlePlaceOrder}
-            className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
-            disabled={loading || !cart || cart.products.length === 0}
-          >
-            <Package className="h-4 w-4 mr-2" />
-            Place Order
-          </Button>
+          <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+            <DialogTrigger asChild>
+              <Button 
+                className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
+                disabled={loading || !cart || cart.products?.length === 0}
+                onClick={() => {
+                  setShowPaymentDialog(true);
+                  setPaymentMethod('');
+                  setError(null);
+                }}
+              >
+                <Package className="h-4 w-4 mr-2" />
+                Place Order
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Choose Payment Method</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-6">
+                <RadioGroup
+                  value={paymentMethod}
+                  onValueChange={async (value) => {
+                    setPaymentMethod(value);
+                    if (value === 'card') {
+                      await initializeBraintree();
+                    }
+                  }}
+                >
+                  <div className="flex items-center space-x-2 mb-4">
+                    <RadioGroupItem value="cod" id="cod" />
+                    <Label htmlFor="cod" className="flex items-center">
+                      <Truck className="h-4 w-4 mr-2" />
+                      Cash on Delivery
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="card" id="card" />
+                    <Label htmlFor="card" className="flex items-center">
+                      <CreditCard className="h-4 w-4 mr-2" />
+                      Pay with Card
+                    </Label>
+                  </div>
+                </RadioGroup>
+
+                {paymentMethod === 'card' && (
+                  <div id="braintree-drop-in-container" className="mt-4" />
+                )}
+
+                <Button 
+                  onClick={handlePayment}
+                  className="w-full bg-green-600 hover:bg-green-700"
+                  disabled={loading || !paymentMethod}
+                >
+                  {loading ? (
+                    <div className="flex items-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                      Processing...
+                    </div>
+                  ) : (
+                    paymentMethod === 'cod' ? 'Place Order' : 'Pay Now'
+                  )}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {error && (
@@ -212,7 +352,7 @@ const CartPage = () => {
           {loading ? (
             <Card className="p-8">
               <div className="flex justify-center items-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600" />
               </div>
             </Card>
           ) : (
