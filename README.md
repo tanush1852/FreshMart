@@ -29,27 +29,32 @@ A modern grocery delivery platform that connects local store owners with custome
 ## 📸 Application Screenshots
 
 ### Admin/Store Owner Interface
-![image](https://github.com/user-attachments/assets/04431460-774e-4ba7-9813-0ff6369772c4)
+![image](https://github.com/user-attachments/assets/9c0d6a6b-c096-4f0a-8940-2c2fc3b72d2f)
+
+
+![image](https://github.com/user-attachments/assets/f7cb5234-4dfd-44bf-a775-ab58a0200118)
+
+![image](https://github.com/user-attachments/assets/f4611480-102f-4243-ab57-c5f4d6ad268a)
 
 
 ### Customer Interface
-![Customer Sign-Up](https://placeholder-image.com/customer-signup.png)
-*Streamlined account creation process*
+![image](https://github.com/user-attachments/assets/e7c4f6a3-b10b-4747-bd11-8e3078e64f5b)
 
-![Customer Login](https://placeholder-image.com/customer-login.png)
-*Secure customer authentication*
+![image](https://github.com/user-attachments/assets/8b26b2cd-9f22-4d46-a8a7-1a7d6999c97c)
 
-![Shopping Page](https://placeholder-image.com/shopping-page.png)
-*Product browsing interface with search and filter capabilities*
+![image](https://github.com/user-attachments/assets/1bf4e293-cfaa-46c3-9107-059decb25028)
 
-![Shopping Cart](https://placeholder-image.com/shopping-cart.png)
-*Interactive cart experience with quantity adjustments*
+![image](https://github.com/user-attachments/assets/785185a9-48cf-4c09-bff9-d2668a174c8c)
 
-![Payment Options](https://placeholder-image.com/payment-options.png)
-*Flexible payment method selection*
+![image](https://github.com/user-attachments/assets/39ae61d3-0069-4b55-a11a-f4f8f98d1ed5)
 
-![Order Success](https://placeholder-image.com/order-success.png)
-*Confirmation page with intelligent delivery time estimation*
+![image](https://github.com/user-attachments/assets/b6bdf8f6-ff67-47c7-b187-0b8a3298e792)
+
+
+
+
+
+
 
 ## 🌟 Key Features Explained
 
