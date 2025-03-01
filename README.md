@@ -37,6 +37,7 @@ A modern grocery delivery platform that connects local store owners with custome
 
 #### Store Owner Dashboard
 ![Store Owner Dashboard](https://github.com/user-attachments/assets/f7cb5234-4dfd-44bf-a775-ab58a0200118)
+
 *Main control panel for store management*
 
 #### Inventory Management
