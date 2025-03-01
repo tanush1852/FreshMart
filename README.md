@@ -32,6 +32,7 @@ A modern grocery delivery platform that connects local store owners with custome
 
 #### Store Owner Sign-In Page
 ![Store Owner Sign-In](https://github.com/user-attachments/assets/9c0d6a6b-c096-4f0a-8940-2c2fc3b72d2f)
+
 *Secure authentication portal for store owners*
 
 #### Store Owner Dashboard
@@ -40,32 +41,39 @@ A modern grocery delivery platform that connects local store owners with custome
 
 #### Inventory Management
 ![Inventory Management](https://github.com/user-attachments/assets/f4611480-102f-4243-ab57-c5f4d6ad268a)
+
 *Interface for adding and updating product inventory*
 
 ### Customer Interface
 
 #### Customer Registration
 ![Customer Registration](https://github.com/user-attachments/assets/e7c4f6a3-b10b-4747-bd11-8e3078e64f5b)
+
 *User-friendly sign-up process for new customers*
 
 #### Customer Login
 ![Customer Login](https://github.com/user-attachments/assets/8b26b2cd-9f22-4d46-a8a7-1a7d6999c97c)
+
 *Secure login portal for returning customers*
 
 #### Product Browsing
 ![Product Browsing](https://github.com/user-attachments/assets/1bf4e293-cfaa-46c3-9107-059decb25028)
+
 *Interactive product catalog with search and filter capabilities*
 
 #### Shopping Cart
 ![Shopping Cart](https://github.com/user-attachments/assets/785185a9-48cf-4c09-bff9-d2668a174c8c)
+
 *Comprehensive cart view with quantity management*
 
 #### Payment Options
 ![Payment Options](https://github.com/user-attachments/assets/39ae61d3-0069-4b55-a11a-f4f8f98d1ed5)
+
 *Multiple payment method selection for checkout*
 
 #### Order Confirmation
 ![Order Confirmation](https://github.com/user-attachments/assets/b6bdf8f6-ff67-47c7-b187-0b8a3298e792)
+
 *Order success page with estimated delivery time based on location data*
 
 ## 🌟 Key Features Explained
